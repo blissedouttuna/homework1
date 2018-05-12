@@ -1,0 +1,103 @@
+---
+title: "Wrangling Data Homework 1"
+author: "Josh Graybiel"
+date: "May 3, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Reading the file in
+```{r}
+gaz_raw<- read.delim("CA_Features_20180401.txt",
+                   sep = "|", quote = "\"", dec = ".", fill = TRUE, comment.char = "", na.strings = "NA")
+as_tibble(gaz_raw)
+```
+
+Tiddying up the file and organizing the headers.
+
+```{r}
+colnames(gaz_raw)
+newgaz_raw<- select(gaz_raw, FEATURE_ID: STATE_ALPHA, COUNTY_NAME, ends_with("DEC"), ends_with("M"), starts_with("map"), starts_with("DATE"))
+colnames(newgaz_raw)<- c("feature ID", 
+                     "feature name", 
+                     "feature class", 
+                     "state alpha", 
+                     "county name", 
+                     "primary latitude (decimal)", 
+                     "primary longitude (decimal)", 
+                     "source latitude (decimal)", 
+                     "source longitude (decimal)", 
+                     "elevation in meters", 
+                     "map name", 
+                     "date created",
+                     "date edited")
+as.tibble(newgaz_raw)
+
+tibble<- as.tibble(newgaz_raw)
+write_csv(tibble, "tibble.csv")
+gaz_edit<- read_csv("tibble.csv")
+gaz_edit
+gaz_edit %>% 
+  drop_na("primary latitude (decimal)", "primary longitude (decimal)")
+gaz_edit %>% 
+  filter(`state alpha`== "CA")
+write_delim(gaz_edit, "gaz_edit.csv", delim = "|")
+```
+Answering the Questions
+```{r}
+#Q1
+name<-(gaz_edit %>% count(`feature name`, sort = TRUE))
+name
+##Church of Christ is the most frequently used feature name
+
+#Q2
+class<-(gaz_edit %>% count(`feature class`, sort = TRUE))
+listclass<- as.tibble(class)
+## Isthmus and Sea are both only used once
+
+#Q3
+justcoordinates<- select(gaz_edit, "county name", "feature class" , "primary latitude (decimal)","primary longitude (decimal)") %>% group_by(`county name`) 
+
+justcoordinates<-filter(justcoordinates, `primary latitude (decimal)` !=0 , `primary longitude (decimal)` !=0)
+
+coordinateanalysis<-summarize(justcoordinates,
+                        maxlat=max(`primary latitude (decimal)`, na.rm=TRUE),
+                        minlat=min(`primary latitude (decimal)`, na.rm=TRUE), 
+                        maxlong=max(`primary longitude (decimal)`, na.rm=TRUE),
+                        minlong=min(`primary longitude (decimal)`, na.rm=TRUE))
+
+findingmiddle<-coordinateanalysis %>% 
+  mutate(centerlat=maxlat+minlat/2, 
+         centerlong=maxlong+minlong/2
+  )
+
+findingmiddle
+####
+
+#Q4
+manornatural<-gaz_edit %>%
+  mutate(type=case_when(
+    `feature class` %in% c("Airport","Bridge","Building","Canal","Cemetery","Census","Church","Civil","Crossing","Dam","Harbor","Hospital","Locale","Military","Mine","Oilfield","Park","Pillar","Populated Place","Post Office","Reserve","Reservoir","School","Tower","Trail","Tunnel","Well")~"man made",
+    TRUE~ "natural"
+  ))
+
+manornaturaltable<- select(manornatural, `feature name`, `county name`, `type`)
+manornaturaltable
+#122308 total rows
+mannaturaltotal<-manornaturaltable %>% count(`type`, sort = TRUE) 
+#man made = 83486
+#natural = 38822
+fractionmanmade <- 83486/122308
+#0.68
+fractionnatural <- 38822/122308
+#0.317
+
+```
+
+
+
+
+
